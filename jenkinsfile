@@ -1,0 +1,134 @@
+pipeline {
+    agent any
+
+    environment {
+        // Change to your real Docker Hub image name (namespace/repo)
+        IMAGE_NAME = 'your-dockerhub-username/flask-aws-monitor'
+        IMAGE_TAG  = "${env.BUILD_NUMBER}"
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                // Best practice: wipe workspace to avoid stale artifacts
+                cleanWs()
+                // Replace with your real repo URL
+                git branch: 'main', url: 'https://github.com/your-repo.git'
+            }
+        }
+
+        stage('Parallel Checks') {
+            parallel {
+                stage('Linting') {
+                    steps {
+                        sh '''
+                            set -e
+
+                            echo "== Python lint (flake8) =="
+                            python3 --version || true
+                            pip3 --version || true
+                            pip3 install --quiet flake8
+                            flake8 . || (echo "flake8 failed" && exit 1)
+
+                            echo "== Shell lint (shellcheck) =="
+                            if command -v shellcheck >/dev/null 2>&1; then
+                              shellcheck -x **/*.sh || (echo "shellcheck failed" && exit 1)
+                            else
+                              echo "shellcheck not installed on agent, skipping"
+                            fi
+
+                            echo "== Dockerfile lint (hadolint) =="
+                            if command -v hadolint >/dev/null 2>&1; then
+                              hadolint Dockerfile || (echo "hadolint failed" && exit 1)
+                            else
+                              echo "hadolint not installed on agent, skipping"
+                            fi
+                        '''
+                    }
+                }
+
+                stage('Security Scan') {
+                    steps {
+                        sh '''
+                            set -e
+
+                            echo "== Dependency scan (pip-audit) =="
+                            pip3 install --quiet pip-audit
+                            if [ -f requirements.txt ]; then
+                              pip-audit -r requirements.txt || (echo "pip-audit found issues" && exit 1)
+                            else
+                              echo "requirements.txt not found, skipping pip-audit"
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    set -e
+                    echo "Building image: ${IMAGE_NAME}:${IMAGE_TAG}"
+                    docker version
+                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest .
+                '''
+            }
+        }
+
+        stage('Container Security Scan') {
+            steps {
+                sh '''
+                    set -e
+                    echo "== Container image scan (Trivy) =="
+                    if command -v trivy >/dev/null 2>&1; then
+                      trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+                    else
+                      echo "trivy not installed on agent, skipping"
+                    fi
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_PASS'
+                )]) {
+                    sh '''
+                        set -e
+                        echo "Logging into Docker Hub..."
+                        echo "${DOCKERHUB_PASS}" | docker login -u "${DOCKERHUB_USER}" --password-stdin
+
+                        echo "Pushing tags..."
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${IMAGE_NAME}:latest
+
+                        echo "Logging out..."
+                        docker logout
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline completed successfully. Pushed ${IMAGE_NAME}:${IMAGE_TAG} and :latest"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check stage logs above."
+        }
+        always {
+            // Keep agents clean
+            sh 'docker image prune -f || true'
+        }
+    }
+}
