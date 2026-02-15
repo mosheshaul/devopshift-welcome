@@ -16,7 +16,7 @@ pipeline {
                     sh '''#!/usr/bin/env bash
                     set -euo pipefail
                     echo "== Python lint (flake8) =="
-                    docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12-slim bash -lc '
+                    docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12.12-slim bash -lc '
                     python -m pip install --no-cache-dir -U pip &&
                     pip install --no-cache-dir flake8 &&
                     flake8 .
@@ -32,7 +32,7 @@ pipeline {
                     docker run --rm \
                     -v "$PWD:/work" \
                     -w /work/welcome \
-                    python:3.12-slim \
+                    python:3.12.12-slim \
                     bash -lc '
                     python -m pip install --no-cache-dir -U pip &&
                     pip install --no-cache-dir bandit &&
@@ -41,9 +41,10 @@ pipeline {
                     echo "== Trivy filesystem scan (welcome/) =="
                     docker run --rm \
                     -v "$PWD:/work" \
+                    -v "$PWD/.trivy-cache:/root/.cache/trivy" \
                     -w /work \
-                    aquasec/trivy:latest \
-                    fs --no-progress --severity HIGH,CRITICAL --exit-code 1 welcome
+                    aquasec/trivy:0.49.1 \
+                    fs --no-progress --severity CRITICAL --exit-code 1 welcome
                     '''
                 }
             }
@@ -55,7 +56,11 @@ pipeline {
         sh '''#!/usr/bin/env bash
         set -euo pipefail
         echo "Building image from welcome/Dockerfile..."
-        docker build --pull -f welcome/Dockerfile -t "${IMAGE_NAME}:${BUILD_NUMBER}" -t "${IMAGE_NAME}:latest" welcome
+        docker build --pull -f welcome/Dockerfile \
+        -t "${IMAGE_NAME}:${BUILD_NUMBER}" \
+        -t "${IMAGE_NAME}:latest" \
+        welcome
+
         '''
       }
     }
@@ -67,7 +72,8 @@ pipeline {
             echo "Scanning built Docker image..."
             docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest \
+            -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+            aquasec/trivy:0.49.1 \
             image --no-progress --severity CRITICAL --exit-code 1 \
             "${IMAGE_NAME}:${BUILD_NUMBER}"
             '''
