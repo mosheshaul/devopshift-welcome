@@ -30,8 +30,8 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps
-RUN pip3 install --no-cache-dir -U pip && \
-    pip3 install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir -U pip setuptools wheel && \
+    python3 -m pip install --no-cache-dir \
       "requests>=2.31.0" \
       "urllib3>=2.6.3" \
       "Atlassian-python-API" && \
