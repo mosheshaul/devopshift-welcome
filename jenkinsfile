@@ -22,7 +22,7 @@ pipeline {
                     sh '''#!/usr/bin/env bash
                     set -euo pipefail
                     echo "== Python lint (flake8) =="
-                    docker run --rm -v "$PWD:/work" -w /work python:3.12-slim bash -lc '
+                    docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12-slim bash -lc '
                     python -m pip install --no-cache-dir -U pip &&
                     pip install --no-cache-dir flake8 &&
                     flake8 .
@@ -36,14 +36,21 @@ pipeline {
             sh '''#!/usr/bin/env bash
             set -euo pipefail
             echo "== Python security scan (bandit) =="
-            docker run --rm -v "$PWD:/work" -w /work python:3.12-slim bash -lc '
+            docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12-slim bash -lc '
             python -m pip install --no-cache-dir -U pip &&
             pip install --no-cache-dir bandit &&
-            bandit -r . -x .venv,.venv-sec
+            bandit -r .
             '
+            echo "== Trivy filesystem scan (welcome/) =="
+            docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:latest \
+            fs --no-progress --severity HIGH,CRITICAL --exit-code 1 welcome
             '''
         }
     }
+
   }
 }
 
@@ -51,10 +58,9 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         sh '''#!/usr/bin/env bash
-          set -euo pipefail
-
-          echo "Building image..."
-          docker build -t "${IMAGE_NAME}:${BUILD_NUMBER}" -t "${IMAGE_NAME}:latest" .
+        set -euo pipefail
+        echo "Building image from welcome/Dockerfile..."
+        docker build -f welcome/Dockerfile-t "${IMAGE_NAME}:${BUILD_NUMBER}" -t "${IMAGE_NAME}:latest" welcome
         '''
       }
     }
@@ -62,10 +68,9 @@ pipeline {
     stage('Container Security Scan (Trivy image)') {
       steps {
         sh '''#!/usr/bin/env bash
-          set -euo pipefail
-
-          echo "Scanning built Docker image..."
-          trivy image --no-progress --severity HIGH,CRITICAL --exit-code 1 "${IMAGE_NAME}:${BUILD_NUMBER}"
+        set -euo pipefail
+        echo "Scanning built Docker image..."
+        trivy image --no-progress --severity HIGH,CRITICAL --exit-code 1 "${IMAGE_NAME}:${BUILD_NUMBER}"
         '''
       }
     }
