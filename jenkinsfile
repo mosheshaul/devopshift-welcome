@@ -6,80 +6,92 @@ pipeline {
   environment {
     IMAGE_NAME = 'mosheshaul/flask-aws-monitor'
     DOCKER_BUILDKIT = '1'
+    PY_IMAGE = 'python:3.12.12-slim'
+    TRIVY_IMAGE = 'aquasec/trivy:0.49.1'
   }
 
   stages {
     stage('Parallel Checks') {
-        parallel {
-            stage('Linting') {
-                steps {
-                    sh '''#!/usr/bin/env bash
-                    set -euo pipefail
-                    echo "== Python lint (flake8) =="
-                    docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12.12-slim bash -lc '
-                    python -m pip install --no-cache-dir -U pip &&
-                    pip install --no-cache-dir flake8 &&
-                    flake8 .
-                    '
-                    '''
-                    }
-                }
-            stage('Security Scan') {
-                steps {
-                    sh '''#!/usr/bin/env bash
-                    set -euo pipefail
-                    echo "== Python security scan (bandit) =="
-                    docker run --rm \
-                    -v "$PWD:/work" \
-                    -w /work/welcome \
-                    python:3.12.12-slim \
-                    bash -lc '
-                    python -m pip install --no-cache-dir -U pip &&
-                    pip install --no-cache-dir bandit &&
-                    bandit -r .
-                    '
-                    echo "== Trivy filesystem scan (welcome/) =="
-                    docker run --rm \
-                    -v "$PWD:/work" \
-                    -v "$PWD/.trivy-cache:/root/.cache/trivy" \
-                    -w /work \
-                    aquasec/trivy:0.49.1 \
-                    fs --no-progress --severity CRITICAL --exit-code 1 welcome
-                    '''
-                }
-            }
+      parallel {
+        stage('Linting') {
+          steps {
+            sh '''#!/usr/bin/env bash
+              set -euo pipefail
+
+              echo "== Python lint (flake8) =="
+              docker run --rm \
+                -v "$PWD:/work" \
+                -w /work/welcome \
+                "${PY_IMAGE}" \
+                bash -lc "
+                  python -m pip install --no-cache-dir -U pip &&
+                  python -m pip install --no-cache-dir flake8 &&
+                  flake8 .
+                "
+            '''
+          }
         }
+
+        stage('Security Scan') {
+          steps {
+            sh '''#!/usr/bin/env bash
+              set -euo pipefail
+
+              echo "== Python security scan (bandit) =="
+              docker run --rm \
+                -v "$PWD:/work" \
+                -w /work/welcome \
+                "${PY_IMAGE}" \
+                bash -lc "
+                  python -m pip install --no-cache-dir -U pip &&
+                  python -m pip install --no-cache-dir bandit &&
+                  bandit -r . -ll
+                "
+
+              echo "== Trivy filesystem scan (welcome/) =="
+              mkdir -p .trivy-cache
+              docker run --rm \
+                -v "$PWD:/work" \
+                -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+                -w /work \
+                "${TRIVY_IMAGE}" \
+                fs --no-progress --severity CRITICAL --exit-code 1 welcome
+            '''
+          }
+        }
+      }
     }
 
     stage('Build Docker Image') {
       steps {
         sh '''#!/usr/bin/env bash
-        set -euo pipefail
-        echo "Building image from welcome/Dockerfile..."
-        docker build --pull -f welcome/Dockerfile \
-        -t "${IMAGE_NAME}:${BUILD_NUMBER}" \
-        -t "${IMAGE_NAME}:latest" \
-        welcome
+          set -euo pipefail
 
+          echo "Building image from welcome/Dockerfile..."
+          docker build --pull -f welcome/Dockerfile \
+            -t "${IMAGE_NAME}:${BUILD_NUMBER}" \
+            -t "${IMAGE_NAME}:latest" \
+            welcome
         '''
       }
     }
 
     stage('Container Security Scan (Trivy image)') {
-        steps {
-            sh '''#!/usr/bin/env bash
-            set -euo pipefail
-            echo "Scanning built Docker image..."
-            docker run --rm \
+      steps {
+        sh '''#!/usr/bin/env bash
+          set -euo pipefail
+
+          echo "Scanning built Docker image..."
+          mkdir -p .trivy-cache
+          docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD/.trivy-cache:/root/.cache/trivy" \
-            aquasec/trivy:0.49.1 \
+            "${TRIVY_IMAGE}" \
             image --no-progress --severity CRITICAL --exit-code 1 \
             "${IMAGE_NAME}:${BUILD_NUMBER}"
-            '''
-        }
+        '''
+      }
     }
-
 
     stage('Push to Docker Hub') {
       steps {
@@ -107,10 +119,9 @@ pipeline {
       echo 'Pipeline failed! Check logs for details.'
     }
     always {
-      // Clean up local images to avoid filling the Jenkins agent disk
-      sh '''
-      set +e
-      docker image rm -f "${IMAGE_NAME}:${BUILD_NUMBER}" "${IMAGE_NAME}:latest" 2>/dev/null || true
+      sh '''#!/usr/bin/env bash
+        set +e
+        docker image rm -f "${IMAGE_NAME}:${BUILD_NUMBER}" "${IMAGE_NAME}:latest" 2>/dev/null || true
       '''
     }
   }
