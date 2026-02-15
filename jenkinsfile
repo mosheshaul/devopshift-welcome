@@ -3,9 +3,9 @@
 pipeline {
   agent any
 
-  options {
-    timestamps()
-  }
+//   options {
+//     timestamps()
+//   }
 
   environment {
     // Change this to your Docker Hub repo (must exist or be creatable)
@@ -25,7 +25,8 @@ pipeline {
       parallel {
         stage('Linting') {
           steps {
-            sh '''
+            sh '''#!/usr/bin/env bash
+              sh 'echo $0; ls -l /bin/sh'  
               set -euo pipefail
 
               echo "== Python lint (flake8) =="
@@ -57,7 +58,7 @@ pipeline {
 
         stage('Security Scan') {
           steps {
-            sh '''
+            sh '''#!/usr/bin/env bash
               set -euo pipefail
 
               echo "== Python security scan (bandit) =="
@@ -79,7 +80,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
 
           echo "Building image..."
@@ -90,7 +91,7 @@ pipeline {
 
     stage('Container Security Scan (Trivy image)') {
       steps {
-        sh '''
+        sh '''#!/usr/bin/env bash
           set -euo pipefail
 
           echo "Scanning built Docker image..."
@@ -102,7 +103,7 @@ pipeline {
     stage('Push to Docker Hub') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-          sh '''
+          sh '''#!/usr/bin/env bash
             set -euo pipefail
 
             echo "${DH_PASS}" | docker login -u "${DH_USER}" --password-stdin
