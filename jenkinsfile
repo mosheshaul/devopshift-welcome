@@ -14,12 +14,12 @@ pipeline {
   }
 
   stages {
-    stage('Clone Repository') {
-      steps {
-        // Use your actual repo URL
-        git branch: 'main', url: 'https://github.com/your-repo.git'
-      }
-    }
+    // stage('Clone Repository') {
+    //   steps {
+    //     // Use your actual repo URL
+    //     git branch: 'main', url: 'https://github.com/mosheshaul/devopshift-welcome.git'
+    //   }
+    // }
 
     stage('Parallel Checks') {
       parallel {
