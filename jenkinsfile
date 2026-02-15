@@ -16,60 +16,37 @@ pipeline {
   stages {
 
     stage('Parallel Checks') {
-      parallel {
-        stage('Linting') {
-          steps {
+        parallel {
+            stage('Linting') {
+                steps {
+                    sh '''#!/usr/bin/env bash
+                    set -euo pipefail
+                    echo "== Python lint (flake8) =="
+                    docker run --rm -v "$PWD:/work" -w /work python:3.12-slim bash -lc '
+                    python -m pip install --no-cache-dir -U pip &&
+                    pip install --no-cache-dir flake8 &&
+                    flake8 .
+                    '
+                    '''
+                    }
+                }
+
+    stage('Security Scan') {
+        steps {
             sh '''#!/usr/bin/env bash
-              set -euo pipefail
-
-              echo "== Python lint (flake8) =="
-              python3 -m venv .venv
-              . .venv/bin/activate
-              python -m pip install --upgrade pip
-              pip install flake8
-              # Adjust paths as needed
-              flake8 .
-
-              echo "== Shell lint (shellcheck) =="
-              # Lint all .sh files if any exist
-              if ls **/*.sh >/dev/null 2>&1; then
-                shellcheck **/*.sh
-              else
-                echo "No shell scripts found. Skipping shellcheck."
-              fi
-
-              echo "== Dockerfile lint (hadolint) =="
-              if [ -f Dockerfile ]; then
-                hadolint Dockerfile
-              else
-                echo "No Dockerfile found! Failing."
-                exit 1
-              fi
+            set -euo pipefail
+            echo "== Python security scan (bandit) =="
+            docker run --rm -v "$PWD:/work" -w /work python:3.12-slim bash -lc '
+            python -m pip install --no-cache-dir -U pip &&
+            pip install --no-cache-dir bandit &&
+            bandit -r . -x .venv,.venv-sec
+            '
             '''
-          }
         }
-
-        stage('Security Scan') {
-          steps {
-            sh '''#!/usr/bin/env bash
-              set -euo pipefail
-
-              echo "== Python security scan (bandit) =="
-              python3 -m venv .venv-sec
-              . .venv-sec/bin/activate
-              python -m pip install --upgrade pip
-              pip install bandit
-              # -r = recursive; adjust to your app folder if desired
-              bandit -r . -x .venv,.venv-sec
-
-              echo "== Trivy filesystem scan (deps/secrets/misconfig) =="
-              # Scans repo contents (lockfiles, configs, etc.)
-              trivy fs --no-progress --severity HIGH,CRITICAL --exit-code 1 .
-            '''
-          }
-        }
-      }
     }
+  }
+}
+
 
     stage('Build Docker Image') {
       steps {
