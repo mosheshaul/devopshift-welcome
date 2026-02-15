@@ -9,24 +9,17 @@ pipeline {
 
   environment {
     // Change this to your Docker Hub repo (must exist or be creatable)
-    IMAGE_NAME = 'YOUR_DOCKERHUB_USERNAME/flask-aws-monitor'
+    IMAGE_NAME = 'mosheshaul/flask-aws-monitor'
     DOCKER_BUILDKIT = '1'
   }
 
   stages {
-    // stage('Clone Repository') {
-    //   steps {
-    //     // Use your actual repo URL
-    //     git branch: 'main', url: 'https://github.com/mosheshaul/devopshift-welcome.git'
-    //   }
-    // }
 
     stage('Parallel Checks') {
       parallel {
         stage('Linting') {
           steps {
             sh '''#!/usr/bin/env bash
-              sh 'echo $0; ls -l /bin/sh'  
               set -euo pipefail
 
               echo "== Python lint (flake8) =="
