@@ -55,7 +55,7 @@ pipeline {
         sh '''#!/usr/bin/env bash
         set -euo pipefail
         echo "Building image from welcome/Dockerfile..."
-        docker build --pull --no-cache -f welcome/Dockerfile -t "${IMAGE_NAME}:${BUILD_NUMBER}" -t "${IMAGE_NAME}:latest" welcome
+        docker build --pull -f welcome/Dockerfile -t "${IMAGE_NAME}:${BUILD_NUMBER}" -t "${IMAGE_NAME}:latest" welcome
         '''
       }
     }

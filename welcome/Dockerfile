@@ -33,10 +33,9 @@ RUN apt-get update && \
 RUN python3 -m pip install --no-cache-dir -U pip setuptools wheel && \
     python3 -m pip install --no-cache-dir \
       "requests>=2.31.0" \
-      "urllib3>=2.6.3" \
+      "urllib3==1.26.20" \
       "Atlassian-python-API" && \
     git config --global http.sslVerify false
-
 
 RUN mkdir -p /home/ciuser/sdk \
     /home/ciuser/.jfrog \
