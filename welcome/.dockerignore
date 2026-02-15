@@ -1,0 +1,37 @@
+# --- Git ---
+.git
+.gitignore
+
+# --- CI / Jenkins ---
+Jenkinsfile
+
+# --- Caches ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Local volumes / runtime data ---
+volume/
+*.db
+*.sqlite
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Pipeline caches (if someone builds from repo root by mistake) ---
+.pip-cache/
+.trivy-cache/
+
+# --- Docker ---
+docker-compose.yml
