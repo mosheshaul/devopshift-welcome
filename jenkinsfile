@@ -3,18 +3,12 @@
 pipeline {
   agent any
 
-//   options {
-//     timestamps()
-//   }
-
   environment {
-    // Change this to your Docker Hub repo (must exist or be creatable)
     IMAGE_NAME = 'mosheshaul/flask-aws-monitor'
     DOCKER_BUILDKIT = '1'
   }
 
   stages {
-
     stage('Parallel Checks') {
         parallel {
             stage('Linting') {
@@ -30,30 +24,31 @@ pipeline {
                     '''
                     }
                 }
-
-    stage('Security Scan') {
-        steps {
-            sh '''#!/usr/bin/env bash
-            set -euo pipefail
-            echo "== Python security scan (bandit) =="
-            docker run --rm -v "$PWD:/work" -w /work/welcome python:3.12-slim bash -lc '
-            python -m pip install --no-cache-dir -U pip &&
-            pip install --no-cache-dir bandit &&
-            bandit -r .
-            '
-            echo "== Trivy filesystem scan (welcome/) =="
-            docker run --rm \
-            -v "$PWD:/work" \
-            -w /work \
-            aquasec/trivy:latest \
-            fs --no-progress --severity HIGH,CRITICAL --exit-code 1 welcome
-            '''
+            stage('Security Scan') {
+                steps {
+                    sh '''#!/usr/bin/env bash
+                    set -euo pipefail
+                    echo "== Python security scan (bandit) =="
+                    docker run --rm \
+                    -v "$PWD:/work" \
+                    -w /work/welcome \
+                    python:3.12-slim \
+                    bash -lc '
+                    python -m pip install --no-cache-dir -U pip &&
+                    pip install --no-cache-dir bandit &&
+                    bandit -r .
+                    '
+                    echo "== Trivy filesystem scan (welcome/) =="
+                    docker run --rm \
+                    -v "$PWD:/work" \
+                    -w /work \
+                    aquasec/trivy:latest \
+                    fs --no-progress --severity HIGH,CRITICAL --exit-code 1 welcome
+                    '''
+                }
+            }
         }
     }
-
-  }
-}
-
 
     stage('Build Docker Image') {
       steps {
@@ -66,14 +61,19 @@ pipeline {
     }
 
     stage('Container Security Scan (Trivy image)') {
-      steps {
-        sh '''#!/usr/bin/env bash
-        set -euo pipefail
-        echo "Scanning built Docker image..."
-        trivy image --no-progress --severity HIGH,CRITICAL --exit-code 1 "${IMAGE_NAME}:${BUILD_NUMBER}"
-        '''
-      }
+        steps {
+            sh '''#!/usr/bin/env bash
+            set -euo pipefail
+            echo "Scanning built Docker image..."
+            docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest \
+            image --no-progress --severity HIGH,CRITICAL --exit-code 1 \
+            "${IMAGE_NAME}:${BUILD_NUMBER}"
+            '''
+        }
     }
+
 
     stage('Push to Docker Hub') {
       steps {
@@ -103,8 +103,8 @@ pipeline {
     always {
       // Clean up local images to avoid filling the Jenkins agent disk
       sh '''
-        set +e
-        docker image rm -f "${IMAGE_NAME}:${BUILD_NUMBER}" "${IMAGE_NAME}:latest" 2>/dev/null || true
+      set +e
+      docker image rm -f "${IMAGE_NAME}:${BUILD_NUMBER}" "${IMAGE_NAME}:latest" 2>/dev/null || true
       '''
     }
   }
