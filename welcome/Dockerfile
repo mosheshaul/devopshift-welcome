@@ -30,8 +30,13 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps
-RUN pip3 install --no-cache-dir requests==2.22.0 Atlassian-python-API && \
+RUN pip3 install --no-cache-dir -U pip && \
+    pip3 install --no-cache-dir \
+      "requests>=2.31.0" \
+      "urllib3>=2.6.3" \
+      "Atlassian-python-API" && \
     git config --global http.sslVerify false
+
 
 RUN mkdir -p /home/ciuser/sdk \
     /home/ciuser/.jfrog \
