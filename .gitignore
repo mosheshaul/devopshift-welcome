@@ -1,3 +1,47 @@
+# --- Secrets / local credentials ---
 keys/
+*.pem
+*.key
+*.crt
+*.pfx
+.env
+.env.*
+!.env.example
 
-welcome/volume
+# --- Jenkins / CI local caches ---
+.trivy-cache/
+.pip-cache/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+
+# --- Logs ---
+*.log
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+welcome/volume/
