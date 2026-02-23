@@ -8,7 +8,8 @@ import requests
 app = Flask(__name__)
 
 # Backend API URL
-BACKEND_API_URL = "http://backend-service:5001/fetch_price"
+import os
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://backend-service:5001/fetch_price")
 
 @app.route('/')
 def index():

@@ -11,9 +11,9 @@ CORS(app, supports_credentials=True)
 
 # MySQL Configuration
 DB_CONFIG = {
-    "host": os.environ.get("MYSQL_HOST", "localhost"),
+    "host": os.environ.get("MYSQL_HOST", "mysqldb"),
     "user": os.environ.get("MYSQL_USER", "root"),
-    "password": os.environ.get("MYSQL_PASSWORD", "password"),
+    "password": os.environ.get("MYSQL_PASSWORD", "123456"),
     "database": "crypto_db"
 }
 
