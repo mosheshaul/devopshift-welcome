@@ -1,0 +1,17 @@
+fullnameOverride: backend-service
+
+replicaCount: 2
+
+image:
+  repository: exam-be
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5001
+
+mysql:
+  host: "mysqldb"
+  user: "root"
+  password: "123456"

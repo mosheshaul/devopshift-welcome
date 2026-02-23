@@ -1,0 +1,15 @@
+fullnameOverride: web
+
+replicaCount: 2
+
+image:
+  repository: exam-fe
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5002
+
+backend:
+  apiUrl: "http://backend-service:5001/fetch_price"
